@@ -8,9 +8,6 @@ I've aimed to go with the most simple possible example I could think of
 - It will have parameter `custom_username`
 - It will be a wrapper to the standard `user` resource 
 
-Despite the apparent simplicity of the task, at first 
-the syntax will be cryptic and the semantics will be confusing 
-
 ## 1. Understand Resources   
 
 ### 1.1 Grammar  
@@ -18,8 +15,9 @@ Recall that Chef resources have the following general grammar
 
 ```
 <resource_name> <name> do
-    <key> <value>
-    action :<action>
+  <key> <value>
+  action :<action>
+end
 ```
 On docs.chef.io/resource_user.html, we can see the full syntax of the `user` resource
 
@@ -48,7 +46,7 @@ This allows clean readable code like this.
 
 ```
 user 'bob' do
-    action :create
+  action :create
 end
 ```
 #### 1.2.1 name_parameter
@@ -62,23 +60,16 @@ So the above statement can be defined equivalently as
 
 ```
 user 'This text doesn't change anything!' do
-    username 'bob'
-    action :create
+  username 'bob'
+  action :create
 end 
 ```
 #### 1.2.2 default_action
 Resources will have a default action. 
 It is a universal convention that the default action should be positive, 
-such as e.g ':add, :install, :start, :run'. 
+such as ':add, :install, :start, :run'. 
 
 This means the example of creating bob can be expressed as `user 'bob' do end`
-
-```
-sudo chef-apply -s <<< "user 'bob' do end"
-Recipe: (chef-apply cookbook)::(chef-apply recipe)
-  * linux_user[bob] action create
-    - create user bob
-```
 
 ## 2 Create Resources
 
@@ -91,18 +82,19 @@ default_action :add
 property :custom_username, String, name_property: true
 
 action :add do
-    user 'create-the-user' do
-        username new_resource.custom_username
-        action :create
-    end
+  user 'create-the-user' do
+    username new_resource.custom_username
+    action :create
+  end
 end
 
 action :del do
-    user 'remove-the-user' do
-        username new_resource.custom_username
-        action :remove 
-    end
+  user 'remove-the-user' do
+    username new_resource.custom_username
+    action :remove
+  end
 end
+
 ```
 
 ### 2.3 Reference resource from recipe
