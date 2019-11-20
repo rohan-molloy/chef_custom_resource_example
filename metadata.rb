@@ -1,8 +1,8 @@
 name 'custom_resource_example'
-maintainer 'The Authors'
-maintainer_email 'you@example.com'
+maintainer 'rohan-molloy'
+maintainer_email '0357179+rohan-molloy@users.noreply.github.com'
 license 'All Rights Reserved'
-description 'Installs/Configures custom_resource_example'
+description 'Demo using custom Chef Resources'
 version '0.1.0'
 chef_version '>= 14.0'
 
