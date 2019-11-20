@@ -1,5 +1,6 @@
 # custom_resource_example
 
+
 This is an example of creating a custom Chef resource. 
 I've aimed to go with the most simple possible example I could think of
 
