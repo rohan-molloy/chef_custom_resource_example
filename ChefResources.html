@@ -1,0 +1,260 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chef Resources</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__left">
+    <div class="stackedit__toc">
+      
+<ul>
+<li>
+<ul>
+<li><a href="#creating-a-custom-resource-in-chef">Creating a custom resource in Chef</a></li>
+</ul>
+</li>
+<li><a href="#understand-resource-syntax--semantics">1. Understand Resource Syntax & Semantics</a></li>
+<li><a href="#create-resources">2 Create Resources</a>
+<ul>
+<li><a href="#define-the-resource-in-cookbook">2.1 Define the resource in cookbook</a></li>
+<li><a href="#reference-resource-from-recipe">2.2 Reference resource from recipe</a></li>
+</ul>
+</li>
+<li><a href="#testing-your-cookbook">3 Testing your cookbook</a>
+<ul>
+<li><a href="#define-unit-tests">3.1 Define unit tests</a></li>
+<li><a href="#configure-integration-testing">3.2 Configure integration testing</a></li>
+<li><a href="#run-integration-tests">3.3 Run integration tests</a></li>
+</ul>
+</li>
+</ul>
+
+    </div>
+  </div>
+  <div class="stackedit__right">
+    <div class="stackedit__html">
+      <h2 id="creating-a-custom-resource-in-chef">Creating a custom resource in Chef</h2>
+<p>This is an example of creating a custom Chef resource.<br>
+I’ve aimed to go with the most simple possible example I could think of</p>
+<ul>
+<li>The resource block will be called <code>custom_user</code></li>
+<li>It will have actions <code>:add</code> and <code>:del</code></li>
+<li>It will have parameter <code>custom_username</code></li>
+<li>It will be a wrapper to the standard <code>user</code> resource</li>
+</ul>
+<h1 id="understand-resource-syntax--semantics">1. Understand Resource Syntax &amp; Semantics</h1>
+<p>Recall that Chef resources have the following general grammar</p>
+<pre><code>&lt;resource_name&gt; &lt;name&gt; do
+  &lt;key&gt; &lt;value&gt;
+  action :&lt;action&gt;
+end
+</code></pre>
+<p>On <a href="http://docs.chef.io/resource_user.html">docs.chef.io/resource_user.html</a>, we can see the full syntax of the <code>user</code> resource</p>
+<pre><code>user 'name' do
+  comment                    String
+  force                      true, false # see description
+  gid                        String, Integer
+  home                       String
+  iterations                 Integer
+  manage_home                true, false
+  non_unique                 true, false
+  password                   String
+  salt                       String
+  shell                      String
+  system                     true, false
+  uid                        String, Integer
+  username                   String # defaults to 'name' if not specified
+  action                     Symbol # defaults to :create if not specified
+end
+</code></pre>
+<p>The Chef resources often make liberal use of ‘syntactic sugar’ by including implicit defaults.<br>
+This allows clean readable code like this.</p>
+<pre><code>user 'bob' do
+  action :create
+end
+</code></pre>
+<p>The properties of the resource are defined as <em>parameters</em> between the do/end,<br>
+There will be at least one parameter that will default to the ‘name’ resource if not explicitly set. When ever a Chef resource is invoked it is passed a ‘name’. The name identifies the instance of the resource. It has no effect on the resource if the primary parameter is defined, such as this example</p>
+<pre><code>user 'This text doesn't change anything!' do
+  username 'bob'
+  action :create
+end 
+</code></pre>
+<p>Resources will have a default action. It is a universal convention that the default action should be positive, such as ‘:add, :install, :start, :run’.</p>
+<p>This means the example of creating a user with the name bob can be expressed as an empty block.</p>
+<pre><code>user 'bob' do
+end
+</code></pre>
+<h1 id="create-resources">2 Create Resources</h1>
+<h2 id="define-the-resource-in-cookbook">2.1 Define the resource in cookbook</h2>
+<p>From within a cookbook directory, run <code>chef resource generate custom_user</code> and add the following to <code>resources/custom_user.rb</code></p>
+<pre><code>resource_name :custom_user
+default_action :add
+property :custom_username, String, name_property: true
+
+action :add do
+  user 'create-the-user' do
+    username new_resource.custom_username
+    action :create
+  end
+end
+
+action :del do
+  user 'remove-the-user' do
+    username new_resource.custom_username
+    action :remove
+  end
+end
+
+</code></pre>
+<h2 id="reference-resource-from-recipe">2.2 Reference resource from recipe</h2>
+<p>Add the following to <code>recipes/main.rb</code><br>
+This recipe first invokes the newly created resource<br>
+with both implicit and explicit parameters parameters and actions</p>
+<pre><code>custom_user 'Creating user bob' do
+  custom_username 'bob'
+  action :add
+end
+
+custom_user 'bob' do
+  action :del
+end
+
+custom_user 'alice' do
+end
+</code></pre>
+<h1 id="testing-your-cookbook">3 Testing your cookbook</h1>
+<h2 id="define-unit-tests">3.1 Define unit tests</h2>
+<p>Add the following to <code>test/integration/default/default_test.rb</code></p>
+<pre><code>describe user("bob") do
+    it { should_not exist }
+end
+
+describe user("alice") do
+    it { should exist }
+end
+</code></pre>
+<h2 id="configure-integration-testing">3.2 Configure integration testing</h2>
+<p>Add the following to <code>kitchen.yml</code><br>
+This driver requires Docker.</p>
+<pre><code>---
+driver:
+  name: dokken
+  chef_version: current
+
+transport:
+  name: dokken
+
+provisioner:
+  name: dokken
+
+verifier:
+  name: inspec
+
+platforms:
+- name: centos-7
+  driver:
+    image: dokken/centos-7
+
+suites:
+  - name: default
+    verifier:
+      inspec_tests:
+        - test/integration/default
+    attributes:
+</code></pre>
+<h2 id="run-integration-tests">3.3 Run integration tests</h2>
+<pre><code>$ kitchen test
+-----&gt; Starting Kitchen (v2.3.3)
+-----&gt; Cleaning up any prior instances of &lt;default-centos-7&gt;
+-----&gt; Destroying &lt;default-centos-7&gt;...
+       Deleting kitchen sandbox at /home/rohan/.dokken/kitchen_sandbox/a7915d66f7-default-centos-7
+       Deleting verifier sandbox at /home/rohan/.dokken/verifier_sandbox/a7915d66f7-default-centos-7
+       Finished destroying &lt;default-centos-7&gt; (0m0.02s).
+-----&gt; Testing &lt;default-centos-7&gt;
+-----&gt; Creating &lt;default-centos-7&gt;...
+       Creating kitchen sandbox at /home/rohan/.dokken/kitchen_sandbox/a7915d66f7-default-centos-7
+       Creating verifier sandbox at /home/rohan/.dokken/verifier_sandbox/a7915d66f7-default-centos-7
+       Building work image..
+       Creating container a7915d66f7-default-centos-7
+       Finished creating &lt;default-centos-7&gt; (0m14.47s).
+-----&gt; Converging &lt;default-centos-7&gt;...
+       Creating kitchen sandbox in /home/rohan/.dokken/kitchen_sandbox/a7915d66f7-default-centos-7
+       Installing cookbooks for Policyfile /mnt/Projects/chef/custom_resource_example/Policyfile.rb using `chef install`
+       Installing cookbooks from lock
+       Installing custom_resource_example 0.1.0
+       Preparing dna.json
+       Exporting cookbook dependencies from Policyfile /home/rohan/.dokken/kitchen_sandbox/a7915d66f7-default-centos-7...
+       Exported policy 'custom_resource_example' to /home/rohan/.dokken/kitchen_sandbox/a7915d66f7-default-centos-7
+       
+       To converge this system with the exported policy, run:
+         cd /home/rohan/.dokken/kitchen_sandbox/a7915d66f7-default-centos-7
+         chef-client -z
+       Removing non-cookbook files before transfer
+       Preparing validation.pem
+       Preparing client.rb
++---------------------------------------------+
+✔ 2 product licenses accepted.
++---------------------------------------------+
+Starting Chef Infra Client, version 15.5.15
+Creating a new client identity for default-centos-7 using the validator key.
+Using policy 'custom_resource_example' at revision '1ac83a0ed9b446a41e2eeecc24cabf77f5259f97c897bf8d597208d6b41de5c2'
+resolving cookbooks for run list: ["custom_resource_example::default@0.1.0 (6558d58)"]
+Synchronizing Cookbooks:
+  - custom_resource_example (0.1.0)
+Installing Cookbook Gems:
+Compiling Cookbooks...
+Converging 3 resources
+Recipe: custom_resource_example::default
+  * custom_user[Creating user bob] action add
+    * linux_user[create-the-user] action create
+      - create user bob
+  
+  * custom_user[bob] action del
+    * linux_user[remove-the-user] action remove
+      - remove user bob
+  
+  * custom_user[alice] action add
+    * linux_user[create-the-user] action create
+      - create user alice
+  
+
+Running handlers:
+Running handlers complete
+Chef Infra Client finished, 6/6 resources updated in 01 seconds
+       Finished converging &lt;default-centos-7&gt; (0m5.48s).
+-----&gt; Setting up &lt;default-centos-7&gt;...
+       Finished setting up &lt;default-centos-7&gt; (0m0.00s).
+-----&gt; Verifying &lt;default-centos-7&gt;...
+       Loaded tests from {:path=&gt;".mnt.Projects.chef.custom_resource_example.test.integration.default"} 
+
+Profile: tests from {:path=&gt;"/mnt/Projects/chef/custom_resource_example/test/integration/default"} (tests from {:path=&gt;".mnt.Projects.chef.custom_resource_example.test.integration.default"})
+Version: (not specified)
+Target:  docker://ea3e336a32d11368adc55c5104ddda2a50936e710cca38249a667e4bdafb2843
+
+  User bob
+     ✔  should not exist
+  User alice
+     ✔  should exist
+
+Test Summary: 2 successful, 0 failures, 0 skipped
+       Finished verifying &lt;default-centos-7&gt; (0m2.06s).
+-----&gt; Destroying &lt;default-centos-7&gt;...
+       Deleting kitchen sandbox at /home/rohan/.dokken/kitchen_sandbox/a7915d66f7-default-centos-7
+       Deleting verifier sandbox at /home/rohan/.dokken/verifier_sandbox/a7915d66f7-default-centos-7
+       Finished destroying &lt;default-centos-7&gt; (0m0.57s).
+       Finished testing &lt;default-centos-7&gt; (0m22.67s).
+-----&gt; Kitchen is finished. (0m24.65s)
+
+</code></pre>
+
+    </div>
+  </div>
+</body>
+
+</html>
